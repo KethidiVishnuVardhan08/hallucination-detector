@@ -20,7 +20,7 @@ from app.scorer import score_question
 from app.schemas import AnalyzeRequest, AnalyzeResponse, SampleOut, HealthResponse
 
 app = FastAPI(
-    title="Hallucination Risk Scorer",
+    title="Hallucination Detector",
     description=(
         "Ground-truth-free hallucination detection via self-consistency "
         "sampling and semantic divergence, with optional token-entropy signal."
