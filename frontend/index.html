@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal / Divergence — Hallucination Risk</title>
+<meta name="description" content="Ground-truth-free hallucination detection via self-consistency sampling and semantic divergence.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-left">
+      <div class="logo">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="8" stroke="#f97316" stroke-width="1.5"/>
+          <circle cx="9" cy="9" r="3" fill="#f97316"/>
+        </svg>
+        <span class="logo-name">Signal<span>/</span>Divergence</span>
+      </div>
+      <span class="header-desc">hallucination risk detector</span>
+    </div>
+    <div class="header-right">
+      <div class="status-chip" id="statusBadge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">connecting</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="divider"></div>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- LEFT COLUMN: input + results -->
+    <div class="content">
+
+      <!-- Input -->
+      <section class="section">
+        <h2 class="section-label">Prompt under test</h2>
+        <textarea
+          id="question"
+          rows="4"
+          placeholder="e.g. What year did Einstein win the Nobel Prize for relativity?"
+        ></textarea>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="nSamples">Samples</label>
+            <input type="number" id="nSamples" value="6" min="3" max="15">
+          </div>
+          <div class="field">
+            <label for="temperature">Temperature</label>
+            <input type="number" id="temperature" value="0.9" min="0" max="2" step="0.1">
+          </div>
+          <button id="runBtn">
+            Run analysis
+            <svg class="btn-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <p class="form-hint">Model queried <strong id="nHint">6</strong> times independently · answers compared semantically</p>
+      </section>
+
+      <!-- Error -->
+      <div class="error-box" id="errorPanel" hidden>
+        <span class="error-label">Error</span>
+        <p id="errorText"></p>
+      </div>
+
+      <!-- Results -->
+      <section id="results" class="results" hidden>
+
+        <!-- Score row -->
+        <div class="score-strip">
+          <div class="score-main">
+            <span class="score-num" id="riskNumber">—</span>
+            <span class="score-sub">risk score</span>
+          </div>
+          <div class="verdict-wrap">
+            <span class="verdict" id="verdict">—</span>
+          </div>
+          <div class="score-metrics">
+            <div class="kv">
+              <span class="kv-key">similarity</span>
+              <span class="kv-val" id="meanSim">—</span>
+            </div>
+            <div class="kv">
+              <span class="kv-key">divergence</span>
+              <span class="kv-val" id="divergence">—</span>
+            </div>
+            <div class="kv">
+              <span class="kv-key">entropy</span>
+              <span class="kv-val" id="entropy">—</span>
+            </div>
+            <div class="kv">
+              <span class="kv-key">model</span>
+              <span class="kv-val mono" id="providerModel">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gauge -->
+        <div class="gauge-row">
+          <svg class="gauge-svg" viewBox="0 0 260 140">
+            <path d="M 24 128 A 106 106 0 0 1 236 128" fill="none" stroke="#1e1e22" stroke-width="12" stroke-linecap="round"/>
+            <path id="gaugeArc" d="M 24 128 A 106 106 0 0 1 236 128" fill="none" stroke="#f97316" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 333"/>
+            <line id="gaugeNeedle" x1="130" y1="128" x2="130" y2="38" stroke="#f0f0f2" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+            <circle cx="130" cy="128" r="5" fill="#f0f0f2" opacity="0.6"/>
+          </svg>
+          <p class="explanation-text" id="explanation"></p>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Matrix -->
+        <div class="section-block">
+          <h3 class="block-title">Pairwise similarity matrix</h3>
+          <p class="block-desc">Each cell = semantic similarity between two independent answers. Darker = more agreement.</p>
+          <div id="matrixGrid" class="matrix-grid"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Samples -->
+        <div class="section-block">
+          <h3 class="block-title">Independent samples</h3>
+          <div id="samplesList" class="samples-list"></div>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: methodology note -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">How it works</h3>
+        <ol class="sidebar-steps">
+          <li>Sample the same prompt N times at temperature &gt; 0</li>
+          <li>Embed all samples and compute pairwise cosine similarity</li>
+          <li>High divergence → model is confabulating</li>
+          <li>Low divergence → model likely knows the answer</li>
+        </ol>
+      </div>
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Verdicts</h3>
+        <div class="verdict-legend">
+          <div class="legend-row"><span class="dot-green"></span><span>Likely grounded &lt; 0.30</span></div>
+          <div class="legend-row"><span class="dot-amber"></span><span>Uncertain 0.30 – 0.60</span></div>
+          <div class="legend-row"><span class="dot-red"></span><span>Likely hallucinated &gt; 0.60</span></div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Caveats</h3>
+        <p class="sidebar-note">Self-consistency catches confabulation, not confident falsehoods. If the model is consistently wrong, divergence stays low. N samples = N× API cost.</p>
+      </div>
+    </aside>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Based on SelfCheckGPT (Manakul et al., 2023) · No ground truth required at inference time</p>
+  </footer>
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

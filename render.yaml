@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: signal-divergence
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      - key: EMBEDDING_BACKEND
+        value: tfidf
+      - key: GROQ_API_KEY
+        sync: false   # you'll paste this in the Render dashboard
+      - key: CORS_ORIGINS
+        value: "*"
