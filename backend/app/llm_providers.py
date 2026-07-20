@@ -19,7 +19,6 @@ import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-import anthropic
 from openai import OpenAI
 
 from app.config import settings
@@ -55,7 +54,11 @@ class AnthropicProvider(LLMProvider):
                 "ANTHROPIC_API_KEY is not set. Add it to backend/.env "
                 "(copy .env.example) before starting the server."
             )
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            raise RuntimeError("anthropic package not installed. Run: pip install anthropic")
+        self.client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self.model = settings.anthropic_model
 
     def _single_call(self, question: str, temperature: float, max_tokens: int) -> str:
